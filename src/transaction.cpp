@@ -6,11 +6,13 @@
 #include <modsecurity/rules.h>
 #include <modsecurity/modsecurity.h>
 #include <modsecurity/transaction.h>
+#include <modsecurity/variable_value.h>
 
 namespace py = pybind11;
 using modsecurity::Transaction;
 using modsecurity::ModSecurity;
 using modsecurity::Rules;
+using modsecurity::VariableValue;
 
 void init_transaction(py::module &m)
 {
@@ -39,6 +41,21 @@ void init_transaction(py::module &m)
         .def("processResponseBody", &Transaction::processResponseBody)
         .def("appendResponseBody", [](Transaction &tr, std::string &str) {
             return tr.appendResponseBody((const unsigned char*) str.c_str(), str.length());
+        })
+        .def("setTxVar", [](Transaction &tr, std::string &name, std::string &val) {
+            return tr.m_collections.m_tx_collection->storeOrUpdateFirst(name.c_str(), val.c_str());
+        })
+        .def("getTxVar", [](Transaction &tr, std::string &name) {
+            const modsecurity::VariableValue *v;
+            std::vector<const modsecurity::VariableValue *> l;
+            std::vector<const modsecurity::VariableValue *>::iterator it;
+
+            tr.m_collections.m_tx_collection->resolveSingleMatch(name, &l);
+            for (it = l.begin(); it != l.end(); it++) {
+                v = *it;
+                return v->m_value.c_str();
+            }
+            return (const char*) NULL;
         })
         .def("processLogging", &Transaction::processLogging)
         .def("updateStatusCode", &Transaction::updateStatusCode)
